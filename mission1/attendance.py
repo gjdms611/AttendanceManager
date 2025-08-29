@@ -1,95 +1,124 @@
-id1 = {}
-id_cnt = 0
+import os
 
-# dat[사용자ID][요일]
-dat = [[0] * 100 for _ in range(100)]
-points = [0] * 100
-grade = [0] * 100
-names = [''] * 100
-wed = [0] * 100
-weeken = [0] * 100
+MAX_PLAYER_NUM = 100
 
-def input2(w, wk):
-    global id_cnt
+players = {}
+total_player_num = 0
 
-    if w not in id1:
-        id_cnt += 1
-        id1[w] = id_cnt
-        names[id_cnt] = w
+attendanced = [[0] * 7 for _ in range(MAX_PLAYER_NUM)]
+points = [0] * MAX_PLAYER_NUM
+grade = ["NORMAL"] * MAX_PLAYER_NUM
+names = [''] * MAX_PLAYER_NUM
+should_remain_player = [False] * MAX_PLAYER_NUM
 
-    id2 = id1[w]
 
-    add_point = 0
-    index = 0
+def set_attendance(player, day):
+    player_index = get_player_index(player)
+    index = get_day_index(day)
+    should_remain_player[player_index] |= is_essential(day)
+    attendanced[player_index][index] += 1
+    points[player_index] += get_points(day)
 
-    if wk == "monday":
-        index = 0
-        add_point += 1
-    elif wk == "tuesday":
-        index = 1
-        add_point += 1
-    elif wk == "wednesday":
-        index = 2
-        add_point += 3
-        wed[id2] += 1
-    elif wk == "thursday":
-        index = 3
-        add_point += 1
-    elif wk == "friday":
-        index = 4
-        add_point += 1
-    elif wk == "saturday":
-        index = 5
-        add_point += 2
-        weeken[id2] += 1
-    elif wk == "sunday":
-        index = 6
-        add_point += 2
-        weeken[id2] += 1
 
-    dat[id2][index] += 1
-    points[id2] += add_point
+def get_player_index(player):
+    if player not in players:
+        register_player(player)
+    return players[player]
 
-def input_file():
-    try:
-        with open("attendance_weekday_500.txt", encoding='utf-8') as f:
-            for _ in range(500):
-                line = f.readline()
-                if not line:
-                    break
-                parts = line.strip().split()
-                if len(parts) == 2:
-                    input2(parts[0], parts[1])
 
-        for i in range(1, id_cnt + 1):
-            if dat[i][2] > 9:
-                points[i] += 10
-            if dat[i][5] + dat[i][6] > 9:
-                points[i] += 10
+def register_player(player):
+    global total_player_num
+    total_player_num += 1
+    players[player] = total_player_num
+    names[total_player_num] = player
 
-            if points[i] >= 50:
-                grade[i] = 1
-            elif points[i] >= 30:
-                grade[i] = 2
-            else:
-                grade[i] = 0
 
-            print(f"NAME : {names[i]}, POINT : {points[i]}, GRADE : ", end="")
-            if grade[i] == 1:
-                print("GOLD")
-            elif grade[i] == 2:
-                print("SILVER")
-            else:
-                print("NORMAL")
+def get_day_index(wk):
+    week = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    return week.index(wk)
 
-        print("\nRemoved player")
-        print("==============")
-        for i in range(1, id_cnt + 1):
-            if grade[i] not in (1, 2) and wed[i] == 0 and weeken[i] == 0:
-                print(names[i])
 
-    except FileNotFoundError:
+def get_points(wk):
+    if wk == "wednesday":
+        return 3
+    elif wk in ["saturday", "sunday"]:
+        return 2
+    return 1
+
+
+def is_essential(day):
+    essential_day = ["wednesday", "saturday", "sunday"]
+    if day in essential_day:
+        return True
+    return False
+
+
+def manage_attendance(attendance_history):
+    result = []
+    for player, name in attendance_history:
+        set_attendance(player, name)
+
+    for player in range(1, total_player_num + 1):
+        add_bonus_point(player)
+        set_grade(player)
+        result.append(f"NAME : {names[player]}, POINT : {points[player]}, GRADE : {grade[player]}")
+
+    result.append("\nRemoved player")
+    result.append("==============")
+    for player in range(1, total_player_num + 1):
+        if should_remove(player):
+            result.append(names[player])
+    print("\n".join(result))
+    return "\n".join(result)  # for test
+
+
+def should_remove(player):
+    return grade[player] not in (1, 2) and should_remain_player[player] is False
+
+
+def set_grade(player):
+    if points[player] >= 50:
+        grade[player] = "GOLD"
+    elif points[player] >= 30:
+        grade[player] = "SILVER"
+
+
+def add_bonus_point(player):
+    if need_wednesday_bonus(player):
+        points[player] += 10
+    if need_weekend_bonus(player):
+        points[player] += 10
+
+
+def need_weekend_bonus(player):
+    saturday = get_day_index("saturday")
+    sunday = get_day_index("sunday")
+    return attendanced[player][saturday] + attendanced[player][sunday] > 9
+
+
+def need_wednesday_bonus(i):
+    return attendanced[i][get_day_index("wednesday")] > 9
+
+
+def load_file(file_path):
+    if not os.path.exists(file_path):
         print("파일을 찾을 수 없습니다.")
+        return []
+
+    attendance_history = []
+    with open(file_path, encoding='utf-8') as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) == 2:
+                attendance_history.append(parts)
+    return attendance_history
+
 
 if __name__ == "__main__":
-    input_file()
+    if os.path.dirname(__file__) == '':
+        CURRENT_DIR = os.getcwd()
+    else:
+        CURRENT_DIR = os.path.dirname(__file__)
+    file_name = "attendance_weekday_500.txt"
+    input = load_file(os.path.join(CURRENT_DIR, file_name))
+    manage_attendance(input)
