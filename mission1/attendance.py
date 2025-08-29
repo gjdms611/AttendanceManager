@@ -14,9 +14,9 @@ should_remain_player = [False] * MAX_PLAYER_NUM
 
 def set_attendance(player, day):
     player_index = get_player_index(player)
-    index = get_day_index(day)
+    day_index = get_day_index(day)
     should_remain_player[player_index] |= is_essential(day)
-    attendanced[player_index][index] += 1
+    attendanced[player_index][day_index] += 1
     points[player_index] += get_points(day)
 
 
@@ -33,15 +33,15 @@ def register_player(player):
     names[total_player_num] = player
 
 
-def get_day_index(wk):
+def get_day_index(day):
     week = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    return week.index(wk)
+    return week.index(day)
 
 
-def get_points(wk):
-    if wk == "wednesday":
+def get_points(day):
+    if day == "wednesday":
         return 3
-    elif wk in ["saturday", "sunday"]:
+    elif day in ["saturday", "sunday"]:
         return 2
     return 1
 
@@ -73,7 +73,7 @@ def manage_attendance(attendance_history):
 
 
 def should_remove(player):
-    return grade[player] not in (1, 2) and should_remain_player[player] is False
+    return grade[player] == "NORMAL" and should_remain_player[player] is False
 
 
 def set_grade(player):
